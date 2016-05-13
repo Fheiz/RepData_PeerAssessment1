@@ -1,25 +1,196 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: 'Reproducible Research: Peer Assessment 1'
+output:
+    html_document
+keep_md: yes
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center")
+``` 
 
 
 ## Loading and preprocessing the data
+1. Unzip the datas in the working directory
 
+```{r}
+unzip("activity.zip")
+```
+
+2. Read the datas
+
+```{r}
+data <- read.csv("activity.csv")
+```
+
+
+3. Have a look on the datas
+Dimensions :
+```{r}
+dim(data)
+```
+
+We have 17568 rows and 3 colums, let look at their structure
+```{r}
+str(data)
+```
+
+And their first rows and the summary :
+
+```{r}
+head(data)
+summary(data)
+```
+
+As we can see, the date are not interpreted as data, let's correct that
+
+```{r}
+data$date = as.Date(data$date)
+summary(data)
+```
 
 
 ## What is mean total number of steps taken per day?
 
 
+1. Aggregage the steps per date and plot the histogram of steps taken per day
+```{r}
+steps_taken_day <- aggregate(steps ~ date, data=data, FUN=sum, na.RM=TRUE)
+hist(steps_taken_day$steps, xlab = "Steps", main="Histogram of Steps taken per day")
+```
+
+2. Mean and median of steps taken per day
+
+```{r}
+steps_taken_day_mean <- mean(steps_taken_day$steps)
+steps_taken_day_mean
+steps_taken_day_median <- median(steps_taken_day$steps)
+steps_taken_day_median
+```
+
+3. Report it, mean in red and median in green
+
+```{r}
+hist(steps_taken_day$steps, xlab = "Steps", main="Histogram of Steps taken per day")
+abline(v=steps_taken_day_mean, col="red")
+abline(v=steps_taken_day_median, col="green")
+
+```
+
 
 ## What is the average daily activity pattern?
 
 
+1. Aggregate the steps per interval and plot the average daily activity pattern
+```{r}
+daily_activity <- aggregate(steps ~ interval, data=data, FUN=mean, na.rm=TRUE)
+plot(daily_activity, type="l", xlab="Interval", ylab="Steps")
+```
+
+2. 5-min interval containing maximum steps
+```{r}
+daily_activity[which.max(daily_activity$steps), ]
+```
+
+3. Report it
+```{r}
+plot(daily_activity, type="l", xlab="Interval", ylab="Steps")
+abline(v=daily_activity[which.max(daily_activity$steps), ]$interval, col="red")
+```
 
 ## Imputing missing values
 
+1. Calculate and report the total number of missing values
+```{r}
+sum(is.na(data$steps))
+```
 
+
+2 and 3 : Create a new dataset with mising value replaced by the daily activity
+for this interval
+
+```{r}
+complete_data <- data
+complete_data[is.na(data$steps),]$steps <-
+    sapply(data[is.na(data$steps), ]$interval,
+           function(x){
+               daily_activity[daily_activity$interval == x,]$steps
+               }
+           )
+```
+
+4. Make the histogram of the total of steps taken each day
+
+* First, aggregate the data
+* Compute the mean and the median
+* Plot the histogram and report the mean (in red) and the median (in green)
+* Report the previous mean (in orange) and the previous median (in purple)
+in order to compare
+
+```{r}
+step_by_day <- aggregate(steps ~ date, data=complete_data, FUN=sum)
+step_by_day_mean <- mean(step_by_day$steps)
+step_by_day_median <- median(step_by_day$steps)
+hist(step_by_day$steps, xlab="Steps", main="Histogram of steps by day")
+abline(v=step_by_day_mean, col="red")
+abline(v=steps_taken_day_mean, col="orange")
+abline(v=step_by_day_median, col="green")
+abline(v=steps_taken_day_median, col="purple")
+```
+
+There is only a purple line, this is due to the fact that the meadians and means
+are close
+
+
+```{r}
+step_by_day_mean
+steps_taken_day_mean
+step_by_day_median
+steps_taken_day_median
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable with two levels : weekdays and weekend
+(For reproductibility using POSIXlt : sunday are 0 and saturday 6)
+
+```{r}
+complete_data$day_type <- factor(sapply(
+    complete_data$date,
+    function(x) {
+        if(as.POSIXlt(x)$wday %in% c(6, 0))
+            return("weekend")
+        else
+            return("weekday")
+        }
+))
+```
+
+2. Compute the mean of weekday and weekend
+
+```{r}
+day_type_interval_mean <- aggregate(steps ~ interval + day_type,
+                                    data=complete_data, FUN=mean)
+```
+
+
+2. Panel plot of 5 minutes intervals for weekend and weekday
+
+```{r}
+par(mfrow = c(2, 1))
+plot(steps ~ interval, 
+     data=day_type_interval_mean[day_type_interval_mean$day_type == "weekend",],
+     type="l",
+     main="Weekend",
+     xlab="Interval",
+     ylab="Steps")
+
+plot(steps ~ interval, 
+     data=day_type_interval_mean[day_type_interval_mean$day_type == "weekday",],
+     type="l",
+     main="Weekday",
+     xlab="Interval",
+     ylab="Steps")
+```
+
+
